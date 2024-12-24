@@ -1,0 +1,48 @@
+services:
+
+  # Securing docker.sock access
+  docker-proxy:
+    container_name: docker-proxy
+    environment:
+      CONTAINERS: 1
+    image: tecnativa/docker-socket-proxy
+    networks:
+      - backend
+    ports:
+      - 2375
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+
+  # Traefik front-end
+  traefik:
+    depends_on:
+      - docker-proxy
+    image: traefik
+    container_name: traefik
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      frontend:
+      backend:
+    ports:
+      - 80:80
+      - 443:443
+    environment:
+      - IONOS_API_KEY=${IONOS_API_KEY}
+    
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ./traefik/traefik.yml:/traefik.yml:ro
+      - ./traefik/acme.json:/acme.json
+      - ./traefik/access.log:/data/access.log
+    # Support containers using host networking
+    # https://doc.traefik.io/traefik/providers/docker/#host-networking
+    extra_hosts:
+     - host.docker.internal:host-gateway
+
+networks:
+  frontend:
+    external: true
+  backend:
+    external: true
